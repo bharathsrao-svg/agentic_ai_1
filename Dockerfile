@@ -6,7 +6,7 @@ WORKDIR /app
 
 
 RUN pip install --upgrade pip
-RUN pip install langchain_classic langchain-google-genai
+RUN pip install langchain_classic langchain langchain-community langchain-perplexity 
 
 #RUN python -c "import langchain; print(langchain.__version__); print(dir(langchain))"
 

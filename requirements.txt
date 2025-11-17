@@ -1,0 +1,20 @@
+# Core dependencies for stock holdings parsers
+pandas>=2.0.0
+openpyxl>=3.1.0  # For Excel .xlsx files
+xlrd>=2.0.0      # For Excel .xls files
+pdfplumber>=0.10.0  # Primary PDF parser (best for tables)
+PyPDF2>=3.0.0    # Fallback PDF parser
+
+# Database dependencies
+psycopg2-binary>=2.9.0  # PostgreSQL adapter
+python-dotenv>=1.0.0    # For loading environment variables
+
+# Optional: For advanced PDF table extraction
+# tabula-py>=2.5.0  # Requires Java, uncomment if needed
+
+# Existing dependencies
+langchain-classic>=0.0.1
+langchain>=0.1.0
+langchain-community>=0.0.10
+langchain-perplexity>=0.0.1
+
