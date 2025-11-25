@@ -18,6 +18,8 @@ class StockHolding:
     exchange: Optional[str] = None
     currency: Optional[str] = None
     date: Optional[datetime] = None
+    yesterday_price: Optional[float] = None  # Previous day's price (for comparison)
+    variation_percent: Optional[float] = None  # Percentage change from previous day
     
     def to_dict(self) -> dict:
         """Convert holding to dictionary"""
@@ -30,7 +32,9 @@ class StockHolding:
             'sector': self.sector,
             'exchange': self.exchange,
             'currency': self.currency,
-            'date': self.date.isoformat() if self.date else None
+            'date': self.date.isoformat() if self.date else None,
+            'yesterday_price': self.yesterday_price,
+            'variation_percent': self.variation_percent
         }
 
 

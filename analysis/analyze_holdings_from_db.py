@@ -47,7 +47,8 @@ class HoldingsAnalyzer:
         template = """You are an expert financial advisor and portfolio analyst. Analyze the following stock holdings portfolio and provide a comprehensive consolidated analysis.
 
 PORTFOLIO HOLDINGS DATA:
-{holdings_data}
+{
+}
 
 Please provide a detailed consolidated analysis report including:
 
@@ -178,10 +179,7 @@ Provide a detailed, structured response."""
             custom_chain = LLMChain(llm=self.llm, prompt=custom_prompt)
             response = custom_chain.run(holdings_data=formatted_holdings)
         else:
-            if USE_NEW_API:
-                response = self.chain.invoke({"holdings_data": formatted_holdings}).content
-            else:
-                response = self.chain.run(holdings_data=formatted_holdings)
+            response = self.chain.run(holdings_data=formatted_holdings)
         
         return response
     
@@ -275,6 +273,7 @@ def main():
     custom_query = args.query or default_query
     
     try:
+
         analyzer = HoldingsAnalyzer(
             llm_model=args.model,
             temperature=args.temperature,

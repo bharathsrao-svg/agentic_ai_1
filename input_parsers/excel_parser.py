@@ -14,16 +14,16 @@ from .models import StockHolding, HoldingsData
 class ExcelHoldingsParser:
     """Parser for extracting stock holdings from Excel files"""
     
-    # Common column name variations
-    SYMBOL_COLUMNS = ['symbol', 'ticker', 'stock', 'stock_symbol', 'ticker_symbol', 
-                      'security', 'instrument', 'code']
-    QUANTITY_COLUMNS = ['quantity', 'qty', 'shares', 'units', 'number_of_shares','quantity available']
-    PRICE_COLUMNS = ['price', 'unit_price', 'cost_price', 'avg_price', 'purchase_price','previous closing price']
-    COST_PRICE_COLUMNS = ['cost_price', 'average price', 'purchase_price']
-    VALUE_COLUMNS = ['value', 'market_value', 'total_value', 'amount', 'current_value']
-    COMPANY_COLUMNS = ['company', 'company_name', 'name', 'security_name', 'description']
-    SECTOR_COLUMNS = ['sector', 'industry', 'industry_sector']
-    EXCHANGE_COLUMNS = ['exchange', 'market', 'listed_on']
+    # Common column name variations (using sets for O(1) membership testing)
+    SYMBOL_COLUMNS = {'symbol', 'ticker', 'stock', 'stock_symbol', 'ticker_symbol', 
+                      'security', 'instrument', 'code'}
+    QUANTITY_COLUMNS = {'quantity', 'qty', 'shares', 'units', 'number_of_shares', 'quantity available'}
+    PRICE_COLUMNS = {'price', 'unit_price', 'cost_price', 'avg_price', 'purchase_price', 'previous closing price'}
+    COST_PRICE_COLUMNS = {'cost_price', 'average price', 'purchase_price'}
+    VALUE_COLUMNS = {'value', 'market_value', 'total_value', 'amount', 'current_value'}
+    COMPANY_COLUMNS = {'company', 'company_name', 'name', 'security_name', 'description'}
+    SECTOR_COLUMNS = {'sector', 'industry', 'industry_sector'}
+    EXCHANGE_COLUMNS = {'exchange', 'market', 'listed_on'}
     
     def __init__(self):
         self.holdings = []
@@ -32,8 +32,16 @@ class ExcelHoldingsParser:
         """Normalize column names for matching"""
         return re.sub(r'[_\s-]', '_', col.lower().strip())
     
-    def find_column(self, df: pd.DataFrame, possible_names: List[str]) -> Optional[str]:
-        """Find column by matching against possible names"""
+    def find_column(self, df: pd.DataFrame, possible_names) -> Optional[str]:
+        """Find column by matching against possible names
+        
+        Args:
+            df: DataFrame to search
+            possible_names: Set or list of possible column names
+            
+        Returns:
+            First matching column name or None
+        """
         normalized_cols = {self.normalize_column_name(col): col for col in df.columns}
         
         for name in possible_names:

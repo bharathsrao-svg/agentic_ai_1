@@ -9,6 +9,16 @@ PyPDF2>=3.0.0    # Fallback PDF parser
 psycopg2-binary>=2.9.0  # PostgreSQL adapter
 python-dotenv>=1.0.0    # For loading environment variables
 
+# MCP and HTTP client dependencies
+httpx>=0.25.0  # Async HTTP client for MCP server connections
+# mcp>=0.1.0  # MCP SDK (if available, uncomment when released)
+
+# Kite Connect (official library for Kite API)
+kiteconnect>=4.0.0  # Official Kite Connect Python library
+
+# Timezone support
+pytz>=2023.3  # For timezone-aware datetime operations (IST timezone)
+
 # Optional: For advanced PDF table extraction
 # tabula-py>=2.5.0  # Requires Java, uncomment if needed
 
