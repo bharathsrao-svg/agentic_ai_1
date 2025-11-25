@@ -8,6 +8,7 @@ from langchain_classic.chains import LLMChain
 from langchain_classic.prompts import PromptTemplate
 from input_parsers.models import HoldingsData, StockHolding
 from kite.kite_holdings import get_holdings_from_kite
+from whatsapp.send_message import send_whatsapp_message_simple
 from pathlib import Path
 from datetime import datetime
 import json
@@ -320,4 +321,11 @@ Answer in a clear, structured format."""
             
             response = chain.run(holdings_data=holdings_json)
             print(response)
-
+            
+            # Send WhatsApp notification with filtered holdings count
+            whatsapp_message = f"Found {len(filtered_holdings.holdings)} stocks with >{args.min_variation}% price variation"
+            try:
+                send_whatsapp_message_simple("919502757136", whatsapp_message)  # Replace with your phone number
+            except Exception as e:
+                print(f"[WARNING] Failed to send WhatsApp notification: {e}")
+            
