@@ -1,6 +1,20 @@
 """
 WhatsApp message sending functionality
 Supports WhatsApp Business API and similar services
+
+PIVOTAL FIELDS for successful WhatsApp Business API calls:
+1. "type": "template" (NOT "text") - CRITICAL for most accounts
+2. "template.language.code" - REQUIRED (e.g., "en")
+3. "template.name" - REQUIRED (must be an approved template name)
+4. "template.components" - REQUIRED if template has body variables/parameters
+5. NO "preview_url" field in template messages
+
+Template messages are REQUIRED for:
+- Initial messages to users
+- Messages outside 24-hour window
+- Accounts not approved for free-form messaging
+
+Set WHATSAPP_TEMPLATE_NAME in environment or pass template_name parameter.
 """
 import os
 import requests
@@ -14,7 +28,10 @@ def send_whatsapp_message(
     message: str,
     token: Optional[str] = None,
     api_url: Optional[str] = None,
-    phone_id: Optional[str] = None
+    phone_id: Optional[str] = None,
+    use_template: bool = False,
+    template_name: Optional[str] = None,
+    language_code: str = "en"
 ) -> dict:
     """
     Send a WhatsApp message using WhatsApp Business API
@@ -25,6 +42,9 @@ def send_whatsapp_message(
         token: WhatsApp API access token (if None, loads from WHATSAPP_TOKEN env var)
         api_url: WhatsApp API base URL (if None, uses default or WHATSAPP_API_URL env var)
         phone_id: WhatsApp Business Phone Number ID (if None, uses WHATSAPP_PHONE_ID env var)
+        use_template: If True, use template message format (required for many accounts). Default: True
+        template_name: Template name to use (if None, uses WHATSAPP_TEMPLATE_NAME env var or "hello_world")
+        language_code: Language code for template (default: "en")
     
     Returns:
         dict: Response from WhatsApp API with status and message_id if successful
@@ -59,7 +79,7 @@ def send_whatsapp_message(
     
     # Load API URL from environment if not provided
     if api_url is None:
-        api_url = os.getenv('WHATSAPP_API_URL', 'https://graph.facebook.com/v18.0')
+        api_url = os.getenv('WHATSAPP_API_URL', 'https://graph.facebook.com/v22.0')
     
     # Format phone number (remove any spaces, dashes, or plus signs)
     phone_number = phone_number.replace(' ', '').replace('-', '').replace('+', '')
@@ -78,19 +98,92 @@ def send_whatsapp_message(
     }
     
     # Prepare payload for WhatsApp Business API
-    payload = {
-        "messaging_product": "whatsapp",
-        "recipient_type": "individual",
-        "to": phone_number,
-        "type": "text",
-        "text": {
-            "preview_url": False,
-            "body": message
+    # PIVOTAL FIELDS for Template messages (required for most accounts):
+    # 1. "type": "template" (NOT "text") - This is CRITICAL
+    # 2. "template" object with "name" and "language" - REQUIRED
+    # 3. "language" object with "code" - REQUIRED
+    # 4. "components" array - Only needed if template has variables/parameters
+    # 
+    # Template messages are REQUIRED for:
+    # - Initial messages to users
+    # - Messages outside 24-hour window after user interaction
+    # - Accounts not approved for free-form messaging
+    
+    if use_template:
+        # Load template name from environment if not provided
+        if template_name is None:
+            template_name = os.getenv('WHATSAPP_TEMPLATE_NAME', 'hello_world')
+        
+        # Template message format - matches successful API call structure
+        # PIVOTAL FIELDS:
+        # - "type": "template" (NOT "text") - CRITICAL
+        # - "template.name" - Your approved template name
+        # - "template.language.code" - Language code (e.g., "en")
+        # - "template.components" - Only if template has variables/parameters
+        
+        template_payload = {
+            "name": template_name,
+            "language": {
+                "code": "en_US"
+            }
         }
-    }
+        
+        # If your template has body variables, add components with the message
+        # Most templates that send dynamic content need this
+        # Check your template structure in Meta Business Suite
+       # if message:  # Only add if we have a message to send
+       #     template_payload["components"] = [
+       #         {
+       #             "type": "body",
+       #             "parameters": [
+       #                 {
+       #                     "type": "text",
+       #                     "text": message
+       #                 }
+       #             ]
+       #         }
+       #     ]
+        
+        payload = {
+            "messaging_product": "whatsapp",
+           "recipient_type": "individual",
+            "to": phone_number,
+           # "type": "template",  # PIVOTAL: Must be "template" not "text"
+            #"template": template_payload
+            "type": "text",
+            "text":{ "body": message
+            }
+            }
+        
+    else:
+        # Free-form text message format
+        # ⚠️ IMPORTANT: Text messages ONLY work if:
+        # 1. Sent within 24-hour window AFTER user has messaged you, OR
+        # 2. Your account is approved for free-form messaging
+        # 
+        # If text messages fail, you MUST use template messages instead
+        # 
+        # Complete text message format (this is correct):
+        payload = {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": phone_number,
+            "type": "text",
+            "text": {
+                "body": message
+                # Note: "preview_url" is optional and not required
+                # Add it if you want link previews: "preview_url": True
+            }
+        }
     
     try:
         # Send message
+       # print("End Point : ")
+       # print(endpoint )
+       # print("Payload : ")
+       # print(payload )
+       # print("Headers : ")
+       # print(headers )
         response = requests.post(endpoint, json=payload, headers=headers, timeout=30)
         response.raise_for_status()
         
@@ -98,9 +191,21 @@ def send_whatsapp_message(
         
         # Check for errors in response
         if 'error' in result:
+            error_code = result['error'].get('code', 'N/A')
+            error_message = result['error'].get('message', 'Unknown error')
+            error_type = result['error'].get('type', '')
+            
+            # Provide helpful error messages for common issues
+            if error_code == 131047:  # Message failed to send
+                error_message += " (This usually means you're outside the 24-hour window. Use template messages instead.)"
+            elif error_code == 100:  # Invalid parameter
+                error_message += " (Check your payload format and required fields.)"
+            elif 'text' in str(payload.get('type', '')).lower() and error_code != 200:
+                error_message += " (Text messages only work within 24h window. Try using template messages with use_template=True.)"
+            
             raise requests.RequestException(
-                f"WhatsApp API error: {result['error'].get('message', 'Unknown error')} "
-                f"(Code: {result['error'].get('code', 'N/A')})"
+                f"WhatsApp API error: {error_message} "
+                f"(Code: {error_code}, Type: {error_type})"
             )
         
         return {
@@ -123,7 +228,7 @@ def send_whatsapp_message(
         raise requests.RequestException(f"Failed to send WhatsApp message: {str(e)}") from e
 
 
-def send_whatsapp_message_simple(phone_number: str, message: str) -> bool:
+def send_whatsapp_message_simple(phone_number: str, message: str, use_template: bool = True) -> bool:
     """
     Simplified wrapper to send WhatsApp message
     Uses environment variables for configuration
@@ -131,12 +236,20 @@ def send_whatsapp_message_simple(phone_number: str, message: str) -> bool:
     Args:
         phone_number: Recipient phone number in international format
         message: Message content to send
+        use_template: If True, use template format (default: True, recommended for most accounts)
     
     Returns:
         bool: True if message sent successfully, False otherwise
+    
+    Note:
+        Template messages are REQUIRED for most WhatsApp Business API accounts.
+        Make sure you have:
+        1. An approved template in Meta Business Suite
+        2. WHATSAPP_TEMPLATE_NAME set in environment (or it defaults to 'hello_world')
+        3. Template must have a body variable if you want to send dynamic content
     """
     try:
-        result = send_whatsapp_message(phone_number, message)
+        result = send_whatsapp_message(phone_number, message, use_template=use_template)
         return result.get("success", False)
     except Exception as e:
         print(f"Error sending WhatsApp message: {e}")
@@ -146,7 +259,7 @@ def send_whatsapp_message_simple(phone_number: str, message: str) -> bool:
 if __name__ == "__main__":
     import sys
     
-    if len(sys.argv) < 3:
+    if len(sys.argv) < 1:
         print("Usage: python send_message.py <phone_number> <message>")
         print("Example: python send_message.py 919876543210 'Hello from Python!'")
         print("\nEnvironment variables:")
@@ -155,8 +268,9 @@ if __name__ == "__main__":
         print("  WHATSAPP_API_URL - WhatsApp API base URL (optional, default: https://graph.facebook.com/v18.0)")
         sys.exit(1)
     
-    phone = sys.argv[1]
-    msg = sys.argv[2]
+    #phone = sys.argv[1]
+    phone = "919502757136"
+    msg = sys.argv[1]
     
     try:
         result = send_whatsapp_message(phone, msg)

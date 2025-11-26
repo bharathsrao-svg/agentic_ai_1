@@ -11,6 +11,7 @@ class StockHolding:
     """Represents a single stock holding entry"""
     symbol: str
     company_name: Optional[str] = None
+    isin: Optional[str] = None
     quantity: Optional[float] = None
     price: Optional[float] = None
     value: Optional[float] = None
@@ -26,6 +27,7 @@ class StockHolding:
         return {
             'symbol': self.symbol,
             'company_name': self.company_name,
+            'isin': self.isin,
             'quantity': self.quantity,
             'price': self.price,
             'value': self.value,

@@ -129,6 +129,7 @@ def filter_holdings_by_price_variation(today_holdings: HoldingsData,
                         price=today_price,
                         value=today_holding.value,
                         company_name=today_holding.company_name,
+                        isin=today_holding.isin,
                         sector=today_holding.sector,
                         exchange=today_holding.exchange,
                         currency=today_holding.currency,
@@ -260,7 +261,7 @@ Examples:
             
             # Display detailed table of filtered holdings with yesterday's price and variation
             if len(filtered_holdings.holdings) > 0:
-                print(f"\n{'Symbol':<15} {'Yesterday':>12} {'Today':>10} {'Variation':>10} {'Side':4} {'Quantity':>12} {'Value':>10}")
+                print(f"\n{'Symbol':<15} {'Yesterday':>12} {'Today':>10} {'Variation':>10} {'Side':4} {'Quantity':>12} {'Value':>10} {'Company Name':>15}")
                 print("-" * 80)
                 for h in filtered_holdings.holdings:
                     direction = "UP" if h.variation_percent and h.variation_percent > 0 else "DOWN"
@@ -269,10 +270,21 @@ Examples:
                           f"{h.price:>10.0f} "
                           f"{abs(h.variation_percent or 0):>9.2f}% {direction:4} "
                           f"{h.quantity:>12.0f} "
-                          f"{h.value:>14,.2f}")
+                          f"{h.value:>14,.2f}"  
+                          f"{h.company_name:>15} ")
                 print("-" * 80)
-              # Send WhatsApp notification with filtered holdings count
-                whatsapp_message = f"Found {len(filtered_holdings.holdings)} stocks with >{args.min_variation}% price variation"
+              # Send WhatsApp notification with filtered holdings details
+                # Build message with each filtered holding's details
+                whatsapp_message = f" Found {len(filtered_holdings.holdings)} stocks with >{args.min_variation}% price variation:\n\n"
+                
+                for h in filtered_holdings.holdings:
+                    direction = "UP" if h.variation_percent and h.variation_percent > 0 else "DOWN"
+                    variation = abs(h.variation_percent or 0)
+                    value = h.value or 0
+                    whatsapp_message += f"{direction}  {h.symbol}  "
+                    whatsapp_message += f"   Variation: {variation:+.2f}%  "
+                    whatsapp_message += f"   Value: Rs. {value:,.2f}\n"
+                
                 try:
                     send_whatsapp_message_simple("919502757136", whatsapp_message)  # Replace with your phone number
                 except Exception as e:
@@ -310,6 +322,7 @@ Examples:
                 
                 template = """You are a financial advisor AI assistant analyzing stock price moves.
 Please provide reasons why the stock prices of the attached holdings have moved significantly today compared to yesterday. The attached holdings has current price and yesterday's price.
+Please pay attention to the company name field along with the symbol to ensure there is no confusion.
 For each question, respond ONLY with JSON formatted data in the template below bookmarked below by the keyword Response_Template :
 
 Response_Template:            

@@ -59,6 +59,7 @@ try:
             pnl = (ltp - avg_price) * quantity if ltp and avg_price else 0
             pnl_percent = ((ltp - avg_price) / avg_price * 100) if avg_price else 0
             
+            
             print(f"\n{i}. {symbol}")
             print(f"   Exchange: {holding.get('exchange', 'N/A')}")
             print(f"   Quantity: {quantity}")

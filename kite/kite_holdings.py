@@ -18,6 +18,9 @@ if str(parent_dir) not in sys.path:
     sys.path.insert(0, str(parent_dir))
 from input_parsers.models import HoldingsData, StockHolding
 
+# Import ISIN company name mapper
+from kite.isin_company_mapper import enrich_holdings_with_company_names
+
 
 def get_holdings_from_single_kite_account(api_key: str, access_token: str, account_name: str = None) -> List[StockHolding]:
     """
@@ -42,6 +45,7 @@ def get_holdings_from_single_kite_account(api_key: str, access_token: str, accou
     try:
         kite_holdings = kite.holdings()
         
+        
         # Convert to StockHolding objects
         holdings_list = []
         
@@ -50,6 +54,7 @@ def get_holdings_from_single_kite_account(api_key: str, access_token: str, accou
             quantity = h.get('quantity', 0)
             last_price = h.get('last_price', 0)
             avg_price = h.get('average_price', 0)
+            isin = h.get('isin', '')
             current_value = quantity * last_price if last_price else 0
             
             # Create StockHolding object
@@ -58,13 +63,21 @@ def get_holdings_from_single_kite_account(api_key: str, access_token: str, accou
                 quantity=quantity,
                 price=last_price,  # Use last_price as current price
                 value=current_value,
-                company_name=h.get('tradingsymbol', ''),  # Kite doesn't provide company name directly
+                company_name=symbol,  # Will be enriched from ISIN
+                isin=isin,
                 sector=None,  # Kite doesn't provide sector
                 exchange=h.get('exchange', ''),
                 currency='INR',
                 date=datetime.now()
             )
             holdings_list.append(stock_holding)
+        
+        # Enrich holdings with company names from ISIN
+        try:
+            holdings_list = enrich_holdings_with_company_names(holdings_list, kite_holdings)
+        except Exception as e:
+            # If enrichment fails, continue without company names
+            print(f"  [WARNING] Failed to enrich company names: {e}")
         
        # print(f"  Fetched {len(holdings_list)} holdings{account_label}")
         return holdings_list
