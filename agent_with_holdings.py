@@ -9,6 +9,7 @@ from langchain_classic.prompts import PromptTemplate
 from input_parsers.models import HoldingsData, StockHolding
 from kite.kite_holdings import get_holdings_from_kite
 from whatsapp.send_message import send_whatsapp_message_simple
+from kite.llm_integration_example import analyze_holdings_strategy3
 from pathlib import Path
 from datetime import datetime
 import json
@@ -315,54 +316,36 @@ Examples:
                     ]
                 }
                 
-                # Create prompt with filtered holdings data
+                # Create JSON string and holdings list for strategy 3
                 holdings_json = json.dumps(portfolio_summary, indent=2, default=str)
+                holdings_list = portfolio_summary["holdings"]
+                
                 print("\nFiltered Holdings Data:")
                 print(holdings_json)
                 
-                template = """You are a financial advisor AI assistant analyzing stock price moves.
-Please provide reasons why the stock prices of the attached holdings have moved significantly today compared to yesterday. The attached holdings has current price and yesterday's price.
-Please pay attention to the company name field along with the symbol to ensure there is no confusion.
-For each question, respond ONLY with JSON formatted data in the template below bookmarked below by the keyword Response_Template :
-
-Response_Template:            
-{{
-"hypotheses": [
-    {{
-    "description": "<reason description>",
-    "confidence_score": 0.0-1.0,
-    "event_date": "YYYY-MM-DD",
-    "relevance_to_today": true or false,
-    "source": "<type of source, e.g., news, financial report>"
-    }},
-    ...
-],
-"overall_confidence": 0.0-1.0,
-"needs_follow_up": true or false,
-"follow_up_question": "<optional follow-up question or empty>"
-}}
-
-
-Portfolio Data:
-{holdings_data}
-
-
-Answer in a clear, structured format."""
-
-                prompt = PromptTemplate(
-                    input_variables=["holdings_data"],
-                    template=template
-                )
-                
-                # Get AI analysis
-                llm = ChatPerplexity(model="sonar", temperature=0.7)
-                chain = LLMChain(llm=llm, prompt=prompt)
-                
+                # Use Strategy 3: Two-Pass Analysis (Summary + Deep Dive)
                 print("\n" + "="*80)
-                print("Getting AI Analysis...")
+                print("Getting AI Analysis using Strategy 3 (Two-Pass)...")
                 print("="*80 + "\n")
                 
-                response = chain.run(holdings_data=holdings_json)
-                print(response)
+                analysis_result = analyze_holdings_strategy3(holdings_json, holdings_list)
+                
+                # Display results
+                if analysis_result:
+                    print("\n" + "="*80)
+                    print("AI Analysis Results:")
+                    print("="*80)
+                    
+                    if "summary" in analysis_result:
+                        print("\n--- SUMMARY ANALYSIS ---")
+                        print(json.dumps(analysis_result["summary"], indent=2, default=str))
+                    
+                    if "deep_dive" in analysis_result:
+                        print("\n--- DEEP DIVE ANALYSIS (Top Holdings) ---")
+                        print(json.dumps(analysis_result["deep_dive"], indent=2, default=str))
+                        if "top_holdings_analyzed" in analysis_result:
+                            print(f"\nTop holdings analyzed: {', '.join(analysis_result['top_holdings_analyzed'])}")
+                else:
+                    print("\n[ERROR] Analysis failed or returned no results")
             
           
