@@ -10,7 +10,7 @@ from pathlib import Path
 from datetime import datetime
 
 
-def run_holdings_analysis(date: str, min_variation: float = 5.0, data_dir: str = "data"):
+def run_holdings_analysis(date: str, min_variation: float = 2.0, data_dir: str = "data"):
     """
     Run agent_with_holdings.py with the specified date
     
@@ -64,7 +64,7 @@ def run_holdings_analysis(date: str, min_variation: float = 5.0, data_dir: str =
         return False
 
 
-def schedule_analysis(date: str, frequency_minutes: int, min_variation: float = 5.0, 
+def schedule_analysis(date: str, frequency_minutes: int, min_variation: float = 2.0, 
                      data_dir: str = "data", max_iterations: int = None):
     """
     Schedule periodic execution of holdings analysis

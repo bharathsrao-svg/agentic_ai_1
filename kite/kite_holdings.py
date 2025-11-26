@@ -37,7 +37,7 @@ def get_holdings_from_single_kite_account(api_key: str, access_token: str, accou
     
     # Get holdings from Kite
     account_label = f" ({account_name})" if account_name else ""
-    print(f"Fetching holdings from Kite API{account_label}...")
+   # print(f"Fetching holdings from Kite API{account_label}...")
     
     try:
         kite_holdings = kite.holdings()
@@ -66,7 +66,7 @@ def get_holdings_from_single_kite_account(api_key: str, access_token: str, accou
             )
             holdings_list.append(stock_holding)
         
-        print(f"  Fetched {len(holdings_list)} holdings{account_label}")
+       # print(f"  Fetched {len(holdings_list)} holdings{account_label}")
         return holdings_list
         
     except Exception as e:
@@ -194,8 +194,8 @@ def get_holdings_from_kite(api_key: str = None, access_token: str = None,
     if len(api_keys) == 0:
         raise ValueError("No API keys found in KITE_API_KEY")
     
-    print(f"Found {len(api_keys)} Kite account(s)")
-    print("=" * 80)
+   # print(f"Found {len(api_keys)} Kite account(s)")
+    #print("=" * 80)
     
     # Fetch holdings from all accounts
     all_holdings = []
@@ -205,18 +205,18 @@ def get_holdings_from_kite(api_key: str = None, access_token: str = None,
         holdings = get_holdings_from_single_kite_account(api_key, access_token, account_name)
         all_holdings.extend(holdings)
     
-    print("=" * 80)
-    print(f"Total holdings before grouping: {len(all_holdings)}")
+    #print("=" * 80)
+    #print(f"Total holdings before grouping: {len(all_holdings)}")
     
     # Group holdings by symbol if requested
     if group_by_symbol:
         grouped_holdings = group_holdings_by_symbol(all_holdings)
-        print(f"Total holdings after grouping: {len(grouped_holdings)}")
+     #   print(f"Total holdings after grouping: {len(grouped_holdings)}")
     else:
         grouped_holdings = all_holdings
     
     total_value = sum(h.value or 0 for h in grouped_holdings)
-    print(f"Total portfolio value: {total_value:,.2f}")
+    #print(f"Total portfolio value: {total_value:,.2f}")
     
     # Create HoldingsData object with grouped holdings
     holdings_data = HoldingsData(
