@@ -33,9 +33,9 @@ def run_holdings_analysis(date: str, min_variation: float = 2.0, data_dir: str =
     cmd = [
         sys.executable,
         str(agent_script),
-        "--date", date,
+       # "--date", date,
         "--min-variation", str(min_variation),
-        "--data-dir", data_dir
+      #  "--data-dir", data_dir
     ]
     
     print(f"\n{'='*80}")
@@ -79,7 +79,7 @@ def schedule_analysis(date: str, frequency_minutes: int, min_variation: float = 
     print("=" * 80)
     print("Holdings Analysis Scheduler")
     print("=" * 80)
-    print(f"Date: {date}")
+   # print(f"Date: {date}")
     print(f"Frequency: Every {frequency_minutes} minute(s)")
     print(f"Min Variation: {min_variation}%")
     if max_iterations:
@@ -140,7 +140,8 @@ Examples:
     parser.add_argument(
         '--date',
         type=str,
-        required=True,
+        required=False,
+        default=None,
         help='Date in YYYYMMDD format for yesterday holdings file (e.g., 20251124)'
     )
     parser.add_argument(
@@ -176,9 +177,9 @@ Examples:
         sys.exit(1)
     
     # Validate date format (basic check)
-    if len(args.date) != 8 or not args.date.isdigit():
-        print("[ERROR] Date must be in YYYYMMDD format (e.g., 20251124)")
-        sys.exit(1)
+   # if len(args.date) != 8 or not args.date.isdigit():
+    #    print("[ERROR] Date must be in YYYYMMDD format (e.g., 20251124)")
+     #   sys.exit(1)
     
     # Start scheduling
     schedule_analysis(

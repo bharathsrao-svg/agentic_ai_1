@@ -1,3 +1,4 @@
+
 """
 Example: How to integrate improved LLM analysis into agent_with_holdings.py
 
@@ -10,7 +11,8 @@ from kite.llm_analysis_helper import (
     analyze_holdings_per_symbol,
     combine_analyses,
     extract_json_from_response,
-    validate_analysis_response
+    validate_analysis_response,
+    handle_follow_up_question
 )
 import json
 
@@ -69,6 +71,7 @@ def analyze_holdings_strategy3(holdings_json: str, holdings_list: list):
     """
     First pass: Quick summary
     Second pass: Deep dive into top movements
+    Handles follow-up questions after both passes
     Best for: Comprehensive analysis with focus on important movements
     """
     llm = ChatPerplexity(model="sonar", temperature=0.5)
@@ -82,6 +85,23 @@ def analyze_holdings_strategy3(holdings_json: str, holdings_list: list):
         temperature=0.3  # Very focused for summary
     )
     
+    # Handle follow-up question for summary (if present)
+    if (summary_result and 
+        "error" not in summary_result and
+        summary_result.get("needs_follow_up", False) and
+        summary_result.get("follow_up_question", "").strip()):
+        
+        print(f"[Pass 1 Follow-up] Handling follow-up question: {summary_result['follow_up_question']}")
+        summary_result = handle_follow_up_question(
+            llm=llm,
+            original_result=summary_result,
+            follow_up_question=summary_result["follow_up_question"],
+            holdings_data=holdings_json,
+            max_retries=2,
+            temperature=0.5
+        )
+        print("[Pass 1 Follow-up] Consolidated result obtained")
+    
     # Identify top movements (highest variation or value)
     top_holdings = sorted(
         holdings_list,
@@ -90,6 +110,7 @@ def analyze_holdings_strategy3(holdings_json: str, holdings_list: list):
     )[:5]  # Top 5
     
     # Pass 2: Deep dive on top holdings
+    deep_dive_result = None
     if top_holdings:
         print(f"[Pass 2] Deep dive on top {len(top_holdings)} holdings...")
         top_holdings_json = json.dumps({
@@ -103,6 +124,23 @@ def analyze_holdings_strategy3(holdings_json: str, holdings_list: list):
             max_retries=2,
             temperature=0.7  # More creative for deep analysis
         )
+        
+        # Handle follow-up question for deep dive (if present)
+        if (deep_dive_result and 
+            "error" not in deep_dive_result and
+            deep_dive_result.get("needs_follow_up", False) and
+            deep_dive_result.get("follow_up_question", "").strip()):
+            
+            print(f"[Pass 2 Follow-up] Handling follow-up question: {deep_dive_result['follow_up_question']}")
+            deep_dive_result = handle_follow_up_question(
+                llm=llm,
+                original_result=deep_dive_result,
+                follow_up_question=deep_dive_result["follow_up_question"],
+                holdings_data=top_holdings_json,
+                max_retries=2,
+                temperature=0.5
+            )
+            print("[Pass 2 Follow-up] Consolidated result obtained")
         
         # Combine results
         return {

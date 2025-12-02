@@ -75,7 +75,7 @@ def get_holdings_by_symbol(holdings_data: HoldingsData) -> dict:
 
 
 def filter_holdings_by_price_variation(today_holdings: HoldingsData, 
-                                       yesterday_holdings: HoldingsData,
+                                      # yesterday_holdings: HoldingsData,
                                        min_variation_percent: float = 5.0) -> HoldingsData:
     """
     Filter today's holdings to only include those with price variation > min_variation_percent
@@ -94,7 +94,7 @@ def filter_holdings_by_price_variation(today_holdings: HoldingsData,
     """
     # Create lookup dictionaries
     today_dict = get_holdings_by_symbol(today_holdings)
-    yesterday_dict = get_holdings_by_symbol(yesterday_holdings)
+  #  yesterday_dict = get_holdings_by_symbol(yesterday_holdings)
     
     # Special symbols that use a lower threshold (0.5%)
     special_symbols = {'UTINIFTETF', 'MID150BEES', 'JUNIORBEES','HDFCSML250','SILVERBEES','GOLDBEES'}
@@ -107,19 +107,21 @@ def filter_holdings_by_price_variation(today_holdings: HoldingsData,
     for key, today_holding in today_dict.items():
 
        
-        if key in yesterday_dict:
-            yesterday_holding = yesterday_dict[key]
+     #   if key in yesterday_dict:
+          #  yesterday_holding = yesterday_dict[key]
             
             # Calculate price variation
             today_price = today_holding.price or 0
-            yesterday_price = yesterday_holding.price or 0
+            #yesterday_price = yesterday_holding.price or 0
             
-            if yesterday_price > 0:
-                variation_percent = ((today_price - yesterday_price) / yesterday_price) * 100
+            if (0 == 0):
+                variation_percent = today_holding.day_change_percent
+               # variation_percent = ((today_price - yesterday_price) / yesterday_price) * 100
+
                 
                 # Determine the threshold based on symbol
                 # Special symbols use 0.5%, others use the default min_variation_percent
-                threshold = 0.8 if today_holding.symbol in special_symbols else min_variation_percent
+                threshold = 0.5 if today_holding.symbol in special_symbols else min_variation_percent
                 
                 # Check if variation exceeds threshold
                 if abs(variation_percent) >= threshold:
@@ -135,8 +137,10 @@ def filter_holdings_by_price_variation(today_holdings: HoldingsData,
                         exchange=today_holding.exchange,
                         currency=today_holding.currency,
                         date=today_holding.date,
-                        yesterday_price=yesterday_price,
-                        variation_percent=variation_percent
+                     #   yesterday_price=yesterday_price,
+                        variation_percent=variation_percent,
+                        day_change=today_holding.day_change,
+                        pnl=today_holding.pnl
                     )
                     filtered_holdings.append(filtered_holding)
                     
@@ -145,10 +149,10 @@ def filter_holdings_by_price_variation(today_holdings: HoldingsData,
                    #       f"Yesterday: Rs.{yesterday_price:10.2f} | "
                     #      f"Today: Rs.{today_price:10.2f} | "
                      #     f"Variation: {variation_percent:+.2f}%")
-        else:
+      #  else:
             # New holding (not in yesterday's data)
             # Could optionally include these as "new holdings"
-            pass
+       #     pass
     
    # print("=" * 80)
     #print(f"Found {len(filtered_holdings)} holdings with >{min_variation_percent}% price variation")
@@ -187,25 +191,25 @@ Examples:
         """
     )
     
-    parser.add_argument(
-        '--date',
-        type=str,
-        required=True,
-        help='Date in YYYYMMDD format for yesterday holdings file (e.g., 20251124). '
-             'Used to compare with today holdings and filter by price variation >5%%'
-    )
+   # parser.add_argument(
+    #    '--date',
+     #   type=str,
+      #  required=False,
+       # default=None,
+        #help='Date in YYYYMMDD format for yesterday holdings file (e.g., 20251124). '
+         #    'Used to compare with today holdings and filter by price variation >5%% (optional)'
+    #)
     parser.add_argument(
         '--min-variation',
         type=float,
         default=5.0,
         help='Minimum price variation percentage to filter (default: 5.0)'
     )
-    parser.add_argument(
-        '--data-dir',
-        type=str,
-        default='data',
-        help='Directory containing EOD holdings JSON files (default: data)'
-    )
+#   parser.add_argument(
+ ##      type=str,
+   #     default='data',
+    #    help='Directory containing EOD holdings JSON files (default: data)'
+    #)
     parser.add_argument(
         '--run-llm',
         action='store_true',
@@ -216,7 +220,7 @@ Examples:
     args = parser.parse_args()
     
     # Price variation analysis: Compare today's holdings with yesterday's
-    if args.date:
+    if 0==0:
        # print("=" * 80)
         #print("Price Variation Analysis")
         #print("=" * 80)
@@ -230,15 +234,14 @@ Examples:
         # Step 2: Load yesterday's holdings from JSON file
         script_dir = Path(__file__).parent
         data_dir = script_dir / "data"
-        yesterday_file = data_dir / f"eod_holdings_{args.date}.json"
+      #  yesterday_file = data_dir / f"eod_holdings_{args.date}.json"
         
-        if not yesterday_file.exists():
-            print(f"\n[ERROR] Yesterday's holdings file not found: {yesterday_file}")
-            print("Please ensure the file exists or check the date format (YYYYMMDD)")
-            exit(1)
+       #     print(f"\n[ERROR] Yesterday's holdings file not found: {yesterday_file}")
+         #   print("Please ensure the file exists or check the date format (YYYYMMDD)")
+          #  exit(1)
         
        # print(f"\n[Step 2] Loading yesterday's holdings from: {yesterday_file}")
-        yesterday_holdings = load_holdings_from_json(yesterday_file)
+      #  yesterday_holdings = load_holdings_from_json(yesterday_file)
        # print(f"Yesterday's holdings: {len(yesterday_holdings.holdings)} stocks")
         #print(f"Total value: Rs. {yesterday_holdings.total_value:,.2f}")
         
@@ -246,10 +249,18 @@ Examples:
         #print(f"\n[Step 3] Filtering holdings with >{args.min_variation}% price variation...")
         filtered_holdings = filter_holdings_by_price_variation(
             today_holdings,
-            yesterday_holdings,
+          #  yesterday_holdings,
             min_variation_percent=args.min_variation
         )
-        
+        whatsapp_message=""  
+        total_pnl = 0.0
+        day_change = 0.0
+        for h in today_holdings.holdings:   
+            total_pnl += (h.pnl if (h.pnl is not None) else 0.0)
+            day_change += (h.day_change if (h.day_change is not None) else 0.0) 
+          
+        whatsapp_message += " Total PnL Rs. " + format(total_pnl, ',.2f') + "\n"
+        whatsapp_message += " Total Day Change Rs. " + format(day_change, ',.2f') + "\n"
         if len(filtered_holdings.holdings) == 0:
             print(f"\nNo holdings found with >{args.min_variation}% price variation.")
         else:
@@ -262,34 +273,40 @@ Examples:
             
             # Display detailed table of filtered holdings with yesterday's price and variation
             if len(filtered_holdings.holdings) > 0:
-                print(f"\n{'Symbol':<15} {'Yesterday':>12} {'Today':>10} {'Variation':>10} {'Side':4} {'Quantity':>12} {'Value':>10} {'Company Name':>15}")
+                print(f"\n{'Symbol':<15} {'Today':>10} {'Variation':>10} {'Side':4} {'Day Change':>12} {'Quantity':>12} {'Value':>10} {'Company Name':>15}")
                 print("-" * 80)
                 for h in filtered_holdings.holdings:
                     direction = "UP" if h.variation_percent and h.variation_percent > 0 else "DOWN"
                     print(f"{h.symbol:<15} "
-                          f"{h.yesterday_price:>12.0f} "
+                          #f"{h.yesterday_price:>12.0f} "
                           f"{h.price:>10.0f} "
                           f"{abs(h.variation_percent or 0):>9.2f}% {direction:4} "
+                          f"{(h.day_change if (h.day_change is not None) else 0.0):>12.0f} "
                           f"{h.quantity:>12.0f} "
                           f"{h.value:>14,.2f}"  
                           f"{h.company_name:>15} ")
                 print("-" * 80)
               # Send WhatsApp notification with filtered holdings details
                 # Build message with each filtered holding's details
-                whatsapp_message = f" Found {len(filtered_holdings.holdings)} stocks with >{args.min_variation}% price variation:\n\n"
+                whatsapp_message += f" Found {len(filtered_holdings.holdings)} stocks with >{args.min_variation}% price variation:\n\n"
                 
                 for h in filtered_holdings.holdings:
+                  
                     direction = "UP" if h.variation_percent and h.variation_percent > 0 else "DOWN"
                     variation = abs(h.variation_percent or 0)
                     value = h.value or 0
+                    pnl = h.pnl or 0
+                    day_change = h.day_change or 0
                     whatsapp_message += f"{direction}  {h.symbol}  "
-                    whatsapp_message += f"   Variation: {variation:+.2f}%  "
-                    whatsapp_message += f"   Value: Rs. {value:,.2f}\n"
+                    whatsapp_message += f"   Var: {variation:+.2f}%  "
+                    whatsapp_message += f"   DayPnL: {day_change:,.2f}  "
+                    whatsapp_message += f"   PnL: Rs. {pnl:,.2f}  "
+                    whatsapp_message += f"   Val: Rs. {value:,.2f}\n"
                 
-                try:
-                    send_whatsapp_message_simple("919502757136", whatsapp_message)  # Replace with your phone number
-                except Exception as e:
-                    print(f"[WARNING] Failed to send WhatsApp notification: {e}")
+            try:
+                send_whatsapp_message_simple("919502757136", whatsapp_message)  # Replace with your phone number
+            except Exception as e:
+                print(f"[WARNING] Failed to send WhatsApp notification: {e}")
             
             # Step 4: Get AI analysis on filtered holdings (only if run_llm is True)
             run_llm = getattr(args, 'run_llm', False)

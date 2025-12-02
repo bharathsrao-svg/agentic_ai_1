@@ -21,6 +21,9 @@ class StockHolding:
     date: Optional[datetime] = None
     yesterday_price: Optional[float] = None  # Previous day's price (for comparison)
     variation_percent: Optional[float] = None  # Percentage change from previous day
+    day_change: Optional[float] = None  # Day change
+    day_change_percent: Optional[float] = None  # Day change percentage
+    pnl: Optional[float] = None  # PNL
     
     def to_dict(self) -> dict:
         """Convert holding to dictionary"""
@@ -36,7 +39,10 @@ class StockHolding:
             'currency': self.currency,
             'date': self.date.isoformat() if self.date else None,
             'yesterday_price': self.yesterday_price,
-            'variation_percent': self.variation_percent
+            'variation_percent': self.variation_percent,
+            'day_change': self.day_change,
+            'day_change_percent': self.day_change_percent,
+            'pnl': self.pnl
         }
 
 
@@ -47,15 +53,16 @@ class HoldingsData:
     source_file: str
     parse_date: datetime
     total_value: Optional[float] = None
-    
+    day_change: Optional[float] = None
     def to_dict(self) -> dict:
         """Convert holdings data to dictionary"""
         return {
             'source_file': self.source_file,
             'parse_date': self.parse_date.isoformat(),
             'total_value': self.total_value,
+            'day_change': self.day_change,
             'holdings': [h.to_dict() for h in self.holdings],
-            'count': len(self.holdings)
+            'count': len(self.holdings) 
         }
     
     def calculate_total_value(self):

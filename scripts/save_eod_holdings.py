@@ -74,6 +74,7 @@ def save_holdings_to_file(holdings_data, output_dir: Path, date_str: str):
         "source_file": holdings_data.source_file,
         "parse_date": holdings_data.parse_date.isoformat() if holdings_data.parse_date else None,
         "total_value": holdings_data.total_value,
+        "day_change": holdings_data.day_change,
         "total_holdings": len(holdings_data.holdings),
         "holdings": [
             {
@@ -85,7 +86,10 @@ def save_holdings_to_file(holdings_data, output_dir: Path, date_str: str):
                 "sector": h.sector,
                 "exchange": h.exchange,
                 "currency": h.currency,
-                "date": h.date.isoformat() if h.date else None
+                "date": h.date.isoformat() if h.date else None,
+                "day_change": h.day_change,
+                "day_change_percent": h.day_change_percent,
+                "pnl": h.pnl
             }
             for h in holdings_data.holdings
         ]

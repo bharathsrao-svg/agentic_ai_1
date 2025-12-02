@@ -50,12 +50,16 @@ def get_holdings_from_single_kite_account(api_key: str, access_token: str, accou
         holdings_list = []
         
         for h in kite_holdings:
+            
             symbol = h.get('tradingsymbol', '')
             quantity = h.get('quantity', 0)
             last_price = h.get('last_price', 0)
             avg_price = h.get('average_price', 0)
             isin = h.get('isin', '')
             current_value = quantity * last_price if last_price else 0
+            day_change = h.get('day_change', 0)
+            day_change_percent = h.get('day_change_percentage', 0)
+            pnl = h.get('pnl', 0)
             
             # Create StockHolding object
             stock_holding = StockHolding(
@@ -68,8 +72,12 @@ def get_holdings_from_single_kite_account(api_key: str, access_token: str, accou
                 sector=None,  # Kite doesn't provide sector
                 exchange=h.get('exchange', ''),
                 currency='INR',
-                date=datetime.now()
+                date=datetime.now(),
+                day_change=day_change * quantity,
+                day_change_percent=day_change_percent,
+                pnl=pnl
             )
+            
             holdings_list.append(stock_holding)
         
         # Enrich holdings with company names from ISIN
@@ -112,7 +120,9 @@ def group_holdings_by_symbol(holdings: List[StockHolding]) -> List[StockHolding]
             new_qty = holding.quantity or 0
             existing.quantity = existing_qty_before + new_qty
             existing.value = (existing.value or 0) + (holding.value or 0)
+            existing.day_change = (existing.day_change or 0) + (holding.day_change or 0)
             
+            existing.pnl = (existing.pnl or 0) + (holding.pnl or 0)
             # Update price to weighted average if both have prices
             if existing.price and holding.price and abs(existing.quantity) >= 1:
                 # Weighted average: (price1 * qty1 + price2 * qty2) / (qty1 + qty2)
@@ -126,8 +136,9 @@ def group_holdings_by_symbol(holdings: List[StockHolding]) -> List[StockHolding]
                 existing.price = existing.value / existing.quantity
             
             # Keep the latest date
-            if holding.date and (not existing.date or holding.date > existing.date):
-                existing.date = holding.date
+            if holding.date and (not existing.date ):
+                existing.date = holding.date,
+                    
         else:
             # First occurrence of this symbol
             holdings_by_symbol[key] = StockHolding(
@@ -139,7 +150,10 @@ def group_holdings_by_symbol(holdings: List[StockHolding]) -> List[StockHolding]
                 sector=holding.sector,
                 exchange=holding.exchange,
                 currency=holding.currency,
-                date=holding.date
+                date=holding.date,
+                day_change=holding.day_change,
+                day_change_percent=holding.day_change_percent,
+                pnl=holding.pnl
             )
     
     return list(holdings_by_symbol.values())
@@ -229,6 +243,7 @@ def get_holdings_from_kite(api_key: str = None, access_token: str = None,
         grouped_holdings = all_holdings
     
     total_value = sum(h.value or 0 for h in grouped_holdings)
+    day_change = sum(h.day_change or 0 for h in grouped_holdings)
     #print(f"Total portfolio value: {total_value:,.2f}")
     
     # Create HoldingsData object with grouped holdings
@@ -236,7 +251,8 @@ def get_holdings_from_kite(api_key: str = None, access_token: str = None,
         holdings=grouped_holdings,
         source_file=f"Kite API ({len(api_keys)} accounts)",
         parse_date=datetime.now(),
-        total_value=total_value
+        total_value=total_value,
+        day_change=day_change
     )
     
     return holdings_data

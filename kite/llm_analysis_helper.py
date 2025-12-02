@@ -112,10 +112,11 @@ def create_improved_prompt_template() -> PromptTemplate:
 Your task is to analyze significant price movements in stock holdings and provide well-researched hypotheses about the causes.
 
 IMPORTANT INSTRUCTIONS:
-1. Focus on events and news from the last 7 days that could explain the price movement
+1. Focus on events and news from the last 3-4 days that could explain the price movement
 2. Provide 2-5 hypotheses per holding, ranked by likelihood
 3. Be specific about dates, events, and sources
-4. Confidence scores should reflect how certain you are about the cause (0.0 = uncertain, 1.0 = very certain)
+4. Confidence scores should reflect ho
+w certain you are about the cause (0.0 = uncertain, 1.0 = very certain)
 5. Only include hypotheses that are directly relevant to today's price movement
 
 EXAMPLE RESPONSE FORMAT:
@@ -216,47 +217,77 @@ def analyze_with_retry(llm: ChatPerplexity,
             parsed = extract_json_from_response(response)
             
             if parsed is None:
+                # JSON extraction failed - use self-correction to fix JSON format
                 if attempt < max_retries - 1:
-                    print(f"[Attempt {attempt + 1}] Failed to parse JSON, retrying...")
-                    continue
+                    print(f"[Attempt {attempt + 1}] Failed to parse JSON, requesting self-correction...")
+                    
+                    # Create error message for JSON parsing failure
+                    json_errors = [
+                        "Response is not valid JSON",
+                        "Could not extract JSON from response",
+                        "Please format your response as valid JSON"
+                    ]
+                    
+                    # Try self-correction to fix JSON format
+                    correction_prompt = create_self_correction_prompt(response, json_errors)
+                    correction_chain = LLMChain(llm=llm, prompt=correction_prompt)
+                    corrected_response = correction_chain.run(
+                        original_response=response,
+                        errors="\n".join(f"- {e}" for e in json_errors)
+                    )
+                    
+                    # Try to extract corrected JSON
+                    corrected_parsed = extract_json_from_response(corrected_response)
+                    if corrected_parsed:
+                        # Validate the corrected JSON
+                        is_valid_corrected, errors_corrected = validate_analysis_response(corrected_parsed)
+                        if is_valid_corrected:
+                            return corrected_parsed
+                        # If JSON is valid but structure is wrong, continue to validation error handling
+                        parsed = corrected_parsed
+                    else:
+                        # Still couldn't parse after correction, continue to next attempt
+                        continue
                 else:
                     return {
                         "error": "Failed to extract valid JSON after multiple attempts",
                         "raw_response": response
                     }
             
-            # Validate structure
-            is_valid, errors = validate_analysis_response(parsed)
-            
-            if is_valid:
-                return parsed
-            else:
-                if attempt < max_retries - 1:
-                    print(f"[Attempt {attempt + 1}] Validation errors: {errors}")
-                    print("Requesting self-correction...")
-                    
-                    # Try self-correction
-                    correction_prompt = create_self_correction_prompt(response, errors)
-                    correction_chain = LLMChain(llm=llm, prompt=correction_prompt)
-                    corrected_response = correction_chain.run(
-                        original_response=response,
-                        errors="\n".join(f"- {e}" for e in errors)
-                    )
-                    
-                    # Try to extract corrected JSON
-                    corrected_parsed = extract_json_from_response(corrected_response)
-                    if corrected_parsed:
-                        is_valid_corrected, errors_corrected = validate_analysis_response(corrected_parsed)
-                        if is_valid_corrected:
-                            return corrected_parsed
-                    
-                    continue
+            # Validate structure (only if we have parsed JSON)
+            if parsed is not None:
+                is_valid, errors = validate_analysis_response(parsed)
+                
+                if is_valid:
+                    return parsed
                 else:
-                    return {
-                        "error": "Validation failed after multiple attempts",
-                        "errors": errors,
-                        "response": parsed
-                    }
+                    # Validation failed - use self-correction to fix structure
+                    if attempt < max_retries - 1:
+                        print(f"[Attempt {attempt + 1}] Validation errors: {errors}")
+                        print("Requesting self-correction...")
+                        
+                        # Try self-correction
+                        correction_prompt = create_self_correction_prompt(response, errors)
+                        correction_chain = LLMChain(llm=llm, prompt=correction_prompt)
+                        corrected_response = correction_chain.run(
+                            original_response=response,
+                            errors="\n".join(f"- {e}" for e in errors)
+                        )
+                        
+                        # Try to extract corrected JSON
+                        corrected_parsed = extract_json_from_response(corrected_response)
+                        if corrected_parsed:
+                            is_valid_corrected, errors_corrected = validate_analysis_response(corrected_parsed)
+                            if is_valid_corrected:
+                                return corrected_parsed
+                        
+                        continue
+                    else:
+                        return {
+                            "error": "Validation failed after multiple attempts",
+                            "errors": errors,
+                            "response": parsed
+                        }
         
         except Exception as e:
             if attempt < max_retries - 1:
@@ -394,4 +425,139 @@ def combine_analyses(per_symbol_results: Dict[str, Dict]) -> Dict:
         "needs_follow_up": needs_follow_up,
         "follow_up_question": "; ".join(follow_up_questions) if follow_up_questions else ""
     }
+
+
+def create_follow_up_prompt_template() -> PromptTemplate:
+    """
+    Create a prompt template for handling follow-up questions
+    Includes original analysis and asks LLM to consolidate results
+    
+    Returns:
+        PromptTemplate for follow-up question handling
+    """
+    template = """You are a senior equity research analyst. You previously provided an analysis, and now need to answer a follow-up question and consolidate the results.
+
+ORIGINAL ANALYSIS:
+{original_analysis}
+
+FOLLOW-UP QUESTION:
+{follow_up_question}
+
+HOLDINGS DATA (for context):
+{holdings_data}
+
+INSTRUCTIONS:
+1. Answer the follow-up question based on the holdings data and your original analysis
+2. Consolidate your original hypotheses with any new insights from answering the follow-up
+3. Update confidence scores if new information changes your assessment
+4. If the follow-up reveals new hypotheses, add them to the list
+5. If the follow-up confirms existing hypotheses, increase their confidence scores
+6. Set needs_follow_up to false after answering (unless a deeper question emerges)
+
+Provide your consolidated analysis in JSON format:
+{{
+  "hypotheses": [
+    {{
+      "description": "<reason description - may be from original or new>",
+      "confidence_score": 0.0-1.0,
+      "event_date": "YYYY-MM-DD",
+      "relevance_to_today": true,
+      "source": "<type of source>"
+    }}
+  ],
+  "overall_confidence": 0.0-1.0,
+  "needs_follow_up": false,
+  "follow_up_question": "",
+  "follow_up_answer": "<your answer to the follow-up question>"
+}}
+
+Consolidate the original analysis with your follow-up answer into a single comprehensive response."""
+
+    return PromptTemplate(
+        input_variables=["original_analysis", "follow_up_question", "holdings_data"],
+        template=template
+    )
+
+
+def handle_follow_up_question(llm: ChatPerplexity,
+                             original_result: Dict[str, Any],
+                             follow_up_question: str,
+                             holdings_data: str,
+                             max_retries: int = 2,
+                             temperature: float = 0.5) -> Dict[str, Any]:
+    """
+    Handle a follow-up question by making another LLM call with original analysis context
+    
+    Args:
+        llm: ChatPerplexity LLM instance
+        original_result: The original analysis result dictionary
+        follow_up_question: The follow-up question to answer
+        holdings_data: JSON string of holdings data for context
+        max_retries: Maximum number of retry attempts
+        temperature: Temperature for LLM
+    
+    Returns:
+        Consolidated analysis result with original + follow-up merged
+    """
+    # Check if original result has errors
+    if "error" in original_result:
+        return original_result
+    
+    # Validate follow-up question
+    if not follow_up_question or not follow_up_question.strip():
+        return original_result
+    
+    # Create follow-up prompt
+    follow_up_prompt = create_follow_up_prompt_template()
+    follow_up_chain = LLMChain(llm=llm, prompt=follow_up_prompt)
+    
+    # Convert original result to JSON string for prompt
+    original_analysis_json = json.dumps(original_result, indent=2, default=str)
+    
+    for attempt in range(max_retries):
+        try:
+            # Run follow-up analysis
+            response = follow_up_chain.run(
+                original_analysis=original_analysis_json,
+                follow_up_question=follow_up_question,
+                holdings_data=holdings_data
+            )
+            
+            # Extract JSON
+            parsed = extract_json_from_response(response)
+            
+            if parsed is None:
+                if attempt < max_retries - 1:
+                    print(f"[Follow-up Attempt {attempt + 1}] Failed to parse JSON, retrying...")
+                    continue
+                else:
+                    # If follow-up fails, return original result
+                    print("[WARNING] Follow-up question handling failed, returning original analysis")
+                    return original_result
+            
+            # Validate structure
+            is_valid, errors = validate_analysis_response(parsed)
+            
+            if is_valid:
+                # Successfully got consolidated result
+                return parsed
+            else:
+                if attempt < max_retries - 1:
+                    print(f"[Follow-up Attempt {attempt + 1}] Validation errors: {errors}, retrying...")
+                    continue
+                else:
+                    # If validation fails, return original result
+                    print("[WARNING] Follow-up response validation failed, returning original analysis")
+                    return original_result
+        
+        except Exception as e:
+            if attempt < max_retries - 1:
+                print(f"[Follow-up Attempt {attempt + 1}] Error: {e}, retrying...")
+                continue
+            else:
+                print(f"[WARNING] Follow-up question handling failed: {e}, returning original analysis")
+                return original_result
+    
+    # If all retries failed, return original
+    return original_result
 
